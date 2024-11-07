@@ -214,4 +214,45 @@ FIELDS
   (WeekStart(Today())-WeekStart($1))/7 AS [WeeksAgo] ,
   Week(Today())-Week($1) AS [WeekRelNo] ;
 
-DERIVE FIELDS FROM FIELDS [Data_assunzione], [Data_nascita] USING [autoCalendar] ;
+DERIVE FIELDS FROM FIELDS [Data_assunzione], [Data_nascita] USING [autoCalendar] ;///$tab Distribution List
+Replace LOAD
+    "Name" AS [DL_DISTRIBUTION_RECIPIENT_NAME],
+    "Email" AS [DL_DISTRIBUTION_EMAIL],
+    SubField([Filters],',') AS [DL_DISTRIBUTION_FILTERS],
+    SubField([Groups],',') AS [DL_DISTRIBUTION_GROUP_NAMES]
+FROM "lib://:DataFiles/Allitude Recipients.xlsx"
+(ooxml, embedded labels, table is DL_DISTRIBUTION_SVC_USERS_QCS);
+
+TempGroups:
+  REPLACE LOAD
+      *
+    FROM "lib://:DataFiles/Allitude Recipients.xlsx"
+    (ooxml, embedded labels, table is DL_DISTRIBUTION_SVC_GROUPS_QCS);
+
+let vEnabledFieldNo = FieldNumber('Enabled', 'TempGroups');
+
+if (vEnabledFieldNo > 0) then
+    DL_DISTRIBUTION_SVC_GROUPS_QCS:
+    REPLACE LOAD
+        "Name" AS [DL_DISTRIBUTION_GROUP_NAMES],
+        "Description" AS [DL_DISTRIBUTION_GROUP_DESCRIPTION],
+        "Enabled" AS [DL_DISTRIBUTION_GROUP_ENABLED]
+    Resident TempGroups;
+else
+
+    DL_DISTRIBUTION_SVC_GROUPS_QCS:
+    REPLACE LOAD
+        "Name" AS [DL_DISTRIBUTION_GROUP_NAMES],
+        "Description" AS [DL_DISTRIBUTION_GROUP_DESCRIPTION],
+        1 AS [DL_DISTRIBUTION_GROUP_ENABLED]
+    Resident TempGroups;
+end if
+
+Drop Table TempGroups;
+
+tag field DL_DISTRIBUTION_RECIPIENT_NAME with 'DL_DISTRIBUTION_SVC__recipientName';
+tag field DL_DISTRIBUTION_EMAIL with 'DL_DISTRIBUTION_SVC__recipientEmail';
+tag field DL_DISTRIBUTION_FILTERS with 'DL_DISTRIBUTION_SVC__recipientFilters';
+tag field DL_DISTRIBUTION_GROUP_NAMES with 'DL_DISTRIBUTION_SVC__groupsName';
+tag field DL_DISTRIBUTION_GROUP_DESCRIPTION with 'DL_DISTRIBUTION_SVC__groupDescription';
+tag field DL_DISTRIBUTION_GROUP_ENABLED with 'DL_DISTRIBUTION_SVC__groupEnabled';
